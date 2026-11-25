@@ -5,14 +5,23 @@ from pathlib import Path
 
 import streamlit as st
 
+from dotenv import load_dotenv
+
+# from langchain_ollama import (
+#     ChatOllama,
+#     OllamaEmbeddings
+# )
+
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_community.document_loaders import PyPDFLoader
-from langgraph.prebuilt import create_react_agent
+#from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 
+load_dotenv(override=True)
 
 # --------------------------------------------------
 # 1. Streamlit configuration
@@ -165,11 +174,25 @@ def create_pdf_agent(vector_db):
     )
 
     # Create a tool-calling ReAct agent
-    agent = create_react_agent(
+    # agent = create_react_agent(
+    #     model=llm,
+    #     tools=[search_pdf],
+    #     prompt=system_prompt,
+    #     debug = True
+    # )
+    agent = create_agent(
         model=llm,
         tools=[search_pdf],
-        prompt=system_prompt
-    )
+        system_prompt="""
+        You are a PDF Knowledge Agent.
+
+        Use search_pdf to answer questions
+        from the uploaded document.
+
+        Do not invent information.
+        Mention relevant PDF page numbers.
+        """
+)
 
     return agent
 
@@ -279,6 +302,16 @@ if uploaded_pdf:
 
                 try:
 
+                    # response = agent.invoke(
+                    #     {
+                    #         "messages": [
+                    #             HumanMessage(
+                    #                 content=question
+                    #             )
+                    #         ]
+                    #     }
+                    # )
+
                     response = agent.invoke(
                         {
                             "messages": [
@@ -286,6 +319,18 @@ if uploaded_pdf:
                                     content=question
                                 )
                             ]
+                        },
+                        config={
+                            "tags": [
+                                "pdf-chatbot",
+                                "local-development"
+                            ],
+                            "metadata": {
+                                "application": "PDF Knowledge Agent",
+                                "model": "llama3.2",
+                                "vector_database": "ChromaDB",
+                                "document_type": "PDF"
+                            }
                         }
                     )
 
